@@ -94,7 +94,14 @@ model, X_test, y_test = train_model(X, y)
 # SIDEBAR (NAVIGASI & FILTER)
 # -----------------------------------------------------------------
 st.sidebar.title("Navigasi 🧭")
-page = st.sidebar.radio("Pilih Halaman:", ("Ringkasan Proyek", "Eksplorasi Data (EDA)", "Simulasi Model & Performa"))
+page = st.sidebar.radio(
+    "Pilih Halaman:",
+    ("Ringkasan Proyek",           # 1. The 'What'
+     "Eksplorasi Data (EDA)",      # 2. The 'Details'
+     "Simulasi Model & Performa",  # 3. The 'How'
+     "Insight & Rekomendasi"       # 4. The 'So What' & 'Now What'
+    )
+)
 st.sidebar.markdown("---")
 
 # **FITUR INTERAKTIF v2.0: FILTER EDA**
@@ -359,3 +366,106 @@ elif page == "Simulasi Model & Performa":
             ax.set_xlabel('Tingkat Kepentingan', fontsize=12)
             ax.set_ylabel('Fitur', fontsize=12)
             st.pyplot(fig)
+
+
+# -----------------------------------------------------------------
+# HALAMAN 4: INSIGHT & REKOMENDASI (BARU!)
+# -----------------------------------------------------------------
+elif page == "Insight & Rekomendasi":
+    st.title("💡 Insight Kunci & Rekomendasi Operasional")
+    st.markdown("""
+    Halaman ini merangkum temuan terpenting dari analisis dan model, 
+    lalu menerjemahkannya menjadi rekomendasi yang dapat ditindaklanjuti.
+    """)
+    st.markdown("---")
+
+    # Ambil feature importance
+    # (Kita hitung ulang di sini agar halaman ini independen)
+    feature_importances = pd.DataFrame({
+        'feature': feature_columns,
+        'importance': model.feature_importances_
+    }).sort_values('importance', ascending=False)
+    
+    top_5_features = feature_importances.head(5)
+
+    st.header("Faktor Kunci Penentu Kepuasan")
+    st.info("""
+    Model XGBoost kita telah mengidentifikasi beberapa faktor yang secara konsisten 
+    memiliki pengaruh terbesar dalam menentukan apakah seorang jamaah 'Puas' atau 'Tidak Puas'.
+    """)
+
+    # Tampilkan 5 fitur teratas
+    st.dataframe(top_5_features, use_container_width=True)
+
+    # Plot 5 fitur teratas
+    fig, ax = plt.subplots(figsize=(10, 5))
+    sns.barplot(
+        x='importance', 
+        y='feature', 
+        data=top_5_features, 
+        palette='viridis', 
+        hue='feature', 
+        legend=False, 
+        ax=ax
+    )
+    ax.set_title('Top 5 Faktor Paling Berpengaruh')
+    ax.set_xlabel('Tingkat Kepentingan (Importance Score)')
+    ax.set_ylabel('Fitur')
+    st.pyplot(fig)
+
+    st.markdown("---")
+    
+    st.header("Rekomendasi Operasional (Actionable Insights)")
+    st.markdown("""
+    Berdasarkan faktor-faktor di atas, berikut adalah rekomendasi strategis 
+    untuk meningkatkan kepuasan jamaah:
+    """)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.success("**Prioritas 1: Optimalkan Waktu Antri (Queue Time)**")
+        st.markdown("""
+        - **Insight:** `Queue_Time_minutes` dan `Security_Checkpoint_Wait_Time` adalah 'pembunuh kepuasan' terbesar ke-2 dan ke-4.
+        - **Rekomendasi:** 1.  Implementasikan sistem pemantauan antrian *real-time* di titik-titik krusial (Tawaf, Sa'i, Keamanan).
+            2.  Buka pos pemeriksaan keamanan tambahan secara dinamis saat kepadatan (`Crowd_Density`) terdeteksi 'High'.
+            3.  Gunakan model ini untuk memprediksi potensi ketidakpuasan saat antrian melebihi 15 menit (berdasarkan slider di simulator).
+        """)
+
+    with col2:
+        st.success("**Prioritas 2: Tingkatkan Persepsi Keamanan (Perceived Safety)**")
+        st.markdown("""
+        - **Insight:** `Perceived_Safety_Rating` adalah faktor terpenting #1. Ini bukan hanya tentang *ada* atau *tidaknya* insiden, tapi tentang apa yang *dirasakan* jamaah.
+        - **Rekomendasi:** 1.  Tingkatkan *visibilitas* petugas keamanan di area padat.
+            2.  Pastikan pencahayaan yang baik di semua area, terutama pada malam hari.
+            3.  Berikan informasi proaktif tentang langkah-langkah keamanan yang sedang berjalan (misal: melalui AR System).
+        """)
+
+    st.markdown("---")
+
+    st.header("Kesimpulan Proyek & Langkah Selanjutnya")
+    
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.subheader("Kesimpulan")
+        st.markdown("""
+        Proyek ini berhasil menunjukkan bahwa kepuasan jamaah sangat dipengaruhi oleh **efisiensi** dan **rasa aman**. 
+        
+        Meskipun faktor-faktor seperti cuaca atau aktivitas tidak dapat diubah, faktor-faktor operasional seperti **waktu antri** dan **manajemen keamanan** dapat dioptimalkan.
+        
+        Model XGBoost yang dibangun (meskipun performanya masih bisa ditingkatkan) telah berhasil mengidentifikasi faktor-faktor kunci ini, dan 'Kalkulator Prediksi' menyediakan alat bantu untuk simulasi skenario.
+        """)
+
+    with col2:
+        st.subheader("Keterbatasan & Langkah Selanjutnya")
+        st.warning("""
+        - **Keterbatasan 1 (Data):** Dataset ini kemungkinan besar **sintetis** (dibuat secara artifisial), seperti yang terlihat dari distribusi rating yang sempurna (1-5). Ini berarti model mungkin tidak akan berperforma sama baiknya pada data dunia nyata yang 'kotor' dan tidak seimbang.
+        
+        - **Keterbatasan 2 (Model):** Performa model (F1-Score makro ~0.58) masih tergolong sedang. Model ini lebih baik dalam memprediksi 'Tidak Puas' daripada 'Puas'.
+        
+        - **Langkah Selanjutnya:**
+            1.  **Validasi:** Uji model ini menggunakan data riil (jika tersedia).
+            2.  **Tuning:** Lakukan *Hyperparameter Tuning* (misal: GridSearchCV) pada XGBoost untuk meningkatkan performa.
+            3.  **Fitur Baru:** Kumpulkan data/fitur baru, seperti jam (pagi/siang/malam), hari (Jumat/biasa), atau event khusus yang mungkin sangat memengaruhi kepadatan.
+        """)

@@ -1,20 +1,20 @@
 import streamlit as st
-    import pandas as pd
-    import plotly.express as px
-    import plotly.graph_objects as go
-    from sklearn.model_selection import train_test_split
-    from sklearn.preprocessing import StandardScaler, OneHotEncoder
-    from sklearn.compose import ColumnTransformer
-    from sklearn.pipeline import Pipeline
-    from sklearn.metrics import classification_report
-    import xgboost as xgb
-    import time
-    import nltk
-    from nltk.corpus import stopwords
-    from nltk.tokenize import sent_tokenize, word_tokenize
-    from string import punctuation
-    import io
-    import numpy as np
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.metrics import classification_report
+import xgboost as xgb
+import time
+import nltk
+from nltk.corpus import stopwords
+from nltk.tokenize import sent_tokenize, word_tokenize
+from string import punctuation
+import io
+import numpy as np
 
     # --- KONFIGURASI HALAMAN & TEMA (DARI .streamlit/config.toml) ---
     st.set_page_config(
@@ -252,4 +252,5 @@ import streamlit as st
                     st.subheader("Hasil Ringkasan:")
                     st.success(summary)
     else:
+
         st.error("Gagal memuat data. Pastikan 'hajj_umrah_crowd_management_dataset.csv' ada di folder yang benar.")

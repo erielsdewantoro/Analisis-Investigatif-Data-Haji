@@ -9,7 +9,7 @@ from sklearn.metrics import classification_report, ConfusionMatrixDisplay
 import streamlit as st
 import warnings
 
-# Menonaktifkan peringatan spesifik (opsional, tapi membuat app lebih bersih)
+# Menonaktifkan peringatan
 warnings.filterwarnings("ignore", category=UserWarning, module='sklearn')
 warnings.filterwarnings("ignore", category=FutureWarning)
 
@@ -17,38 +17,32 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 # PENGATURAN HALAMAN (Harus menjadi perintah st pertama)
 # -----------------------------------------------------------------
 st.set_page_config(
-    page_title="Analisis Kepuasan Jamaah Haji & Umrah",
+    page_title="Analisis Kepuasan Jamaah",
     page_icon="🕋",
-    layout="wide",  # Menggunakan layout 'wide' agar lebih lega
+    layout="wide", # Layout 'wide' lebih profesional untuk dasbor
     initial_sidebar_state="expanded"
 )
 
 # -----------------------------------------------------------------
 # FUNGSI UNTUK MEMUAT DAN MEMPROSES DATA
 # -----------------------------------------------------------------
-@st.cache_data  # Cache data agar tidak di-load ulang setiap kali ada interaksi
+@st.cache_data
 def load_data():
-    # Membaca data
     df = pd.read_csv("hajj_umrah_crowd_management_dataset.csv")
     
-    # --- Ini adalah langkah preprocessing dari notebook Anda ---
-    
     # 1. Mengubah 'Satisfaction_Rating' menjadi biner
-    # (1, 2, 3 = 0 'Tidak Puas') | (4, 5 = 1 'Puas')
     df['satisfaction_binary'] = df['Satisfaction_Rating'].apply(lambda x: 1 if x >= 4 else 0)
     
-    # 2. Encoding Fitur Kategorikal (One-Hot Encoding)
-    # Memilih kolom kategorikal (sesuai notebook Anda)
+    # 2. Mendefinisikan fitur
     categorical_cols = [
         'Crowd_Density', 'Activity_Type', 'Weather_Conditions', 'Fatigue_Level',
         'Stress_Level', 'Health_Condition', 'Age_Group', 'Pilgrim_Experience',
         'Transport_Mode', 'Emergency_Event', 'Crowd_Morale', 'AR_Navigation_Success',
-        'Nationality' # Menambahkan Nationality yang ada di notebook Anda
+        'Nationality'
     ]
-    df_encoded = pd.get_dummies(df, columns=categorical_cols, drop_first=True)
+    # Menggunakan drop_first=False agar lebih mudah saat membuat form prediksi
+    df_encoded = pd.get_dummies(df, columns=categorical_cols, drop_first=False)
     
-    # 3. Scaling Fitur Numerik
-    # Memilih kolom numerik (sesuai notebook Anda)
     numeric_cols = [
         'Movement_Speed', 'Temperature', 'Sound_Level_dB', 'Queue_Time_minutes',
         'Waiting_Time_for_Transport', 'Security_Checkpoint_Wait_Time',
@@ -56,39 +50,34 @@ def load_data():
         'Perceived_Safety_Rating'
     ]
     
+    # 3. Scaling Fitur Numerik
     scaler = StandardScaler()
-    df_encoded[numeric_cols] = scaler.fit_transform(df_encoded[numeric_cols])
+    # Fit scaler pada data
+    scaler.fit(df_encoded[numeric_cols]) 
+    # Transform data
+    df_encoded[numeric_cols] = scaler.transform(df_encoded[numeric_cols])
     
     # 4. Mendefinisikan Fitur (X) dan Target (y)
-    # (Ini adalah gabungan dari semua kolom yang telah di-encode dan di-scale)
-    
-    # Mengambil semua nama kolom hasil encoding
     encoded_feature_names = [col for col in df_encoded.columns if any(cat_col in col for cat_col in categorical_cols)]
-    
-    # Menggabungkan fitur numerik dan kategorikal yang sudah diproses
     feature_columns = numeric_cols + encoded_feature_names
     
     X = df_encoded[feature_columns]
     y = df_encoded['satisfaction_binary']
     
-    # Mengembalikan data mentah (untuk EDA) dan data yg diproses (untuk Model)
-    return df, X, y
+    # Mengembalikan semua yang kita butuhkan
+    return df, X, y, scaler, numeric_cols, feature_columns
 
-# Memuat data menggunakan fungsi
-df_raw, X, y = load_data()
+# Memuat data
+df_raw, X, y, scaler, numeric_cols, feature_columns = load_data()
 
 # -----------------------------------------------------------------
-# FUNGSI UNTUK MELATIH MODEL (ATAU MEMUAT MODEL JADI)
+# FUNGSI UNTUK MELATIH MODEL
 # -----------------------------------------------------------------
-@st.cache_resource # Cache model agar tidak di-train ulang
+@st.cache_resource # Cache model
 def train_model(X, y):
-    # Membagi data (sesuai notebook Anda)
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
-    
-    # Menghitung scale_pos_weight untuk mengatasi ketidakseimbangan
     scale_pos_weight = y_train.value_counts()[0] / y_train.value_counts()[1]
     
-    # Melatih model XGBoost Tuned (model terbaik Anda)
     xgb_tuned_model = xgb.XGBClassifier(
         use_label_encoder=False,
         eval_metric='logloss',
@@ -96,182 +85,277 @@ def train_model(X, y):
         random_state=42
     )
     xgb_tuned_model.fit(X_train, y_train)
-    
-    # Mengembalikan model yang sudah dilatih dan data split
-    return xgb_tuned_model, X_train, X_test, y_train, y_test
+    return xgb_tuned_model, X_test, y_test
 
 # Melatih model
-model, X_train, X_test, y_train, y_test = train_model(X, y)
+model, X_test, y_test = train_model(X, y)
 
 # -----------------------------------------------------------------
-# SIDEBAR (NAVIGASI)
+# SIDEBAR (NAVIGASI & FILTER)
 # -----------------------------------------------------------------
-st.sidebar.title("Navigasi Proyek 🕋")
-page = st.sidebar.radio(
-    "Pilih Halaman:",
-    ("Ringkasan Proyek", "Eksplorasi Data (EDA)", "Performa Model & Prediksi")
-)
+st.sidebar.title("Navigasi 🧭")
+page = st.sidebar.radio("Pilih Halaman:", ("Ringkasan Proyek", "Eksplorasi Data (EDA)", "Simulasi Model & Performa"))
 st.sidebar.markdown("---")
-st.sidebar.info(
-    "Proyek ini menganalisis dataset manajemen kerumunan Haji & Umrah "
-    "untuk memprediksi tingkat kepuasan jamaah."
+
+# **FITUR INTERAKTIF v2.0: FILTER EDA**
+st.sidebar.header("Filter Data (untuk EDA)")
+st.sidebar.info("Filter ini hanya akan memengaruhi halaman 'Eksplorasi Data (EDA)'.")
+
+# Filter 1: Kelompok Usia
+age_options = st.sidebar.multiselect(
+    "Pilih Kelompok Usia:",
+    options=df_raw['Age_Group'].unique(),
+    default=df_raw['Age_Group'].unique()
 )
+
+# Filter 2: Pengalaman Jamaah
+exp_options = st.sidebar.multiselect(
+    "Pilih Pengalaman Jamaah:",
+    options=df_raw['Pilgrim_Experience'].unique(),
+    default=df_raw['Pilgrim_Experience'].unique()
+)
+
+# Terapkan filter ke dataframe mentah
+df_filtered = df_raw[
+    (df_raw['Age_Group'].isin(age_options)) &
+    (df_raw['Pilgrim_Experience'].isin(exp_options))
+]
+
 
 # -----------------------------------------------------------------
 # HALAMAN 1: RINGKASAN PROYEK
 # -----------------------------------------------------------------
 if page == "Ringkasan Proyek":
-    st.title("Analisis Prediktif Kepuasan Jamaah Haji & Umrah")
+    st.title("🕋 Analisis Prediktif Kepuasan Jamaah Haji & Umrah")
     st.markdown("""
-    Selamat datang di dasbor analisis proyek ini. Dataset ini berisi 10.000 catatan sintetis 
-    terkait manajemen kerumunan selama ibadah Haji dan Umrah.
-
-    **Tujuan Utama Proyek:**
-    1.  Mengeksplorasi faktor-faktor yang memengaruhi pengalaman jamaah.
-    2.  Membangun model *Machine Learning* untuk memprediksi apakah seorang jamaah akan **Puas** (Rating 4-5) atau **Tidak Puas** (Rating 1-3).
-    
-    **Dataset:**
-    -   **Sumber:** `hajj_umrah_crowd_management_dataset.csv`
-    -   **Jumlah Baris:** 10.000
-    -   **Jumlah Kolom:** 30
-
-    Gunakan navigasi di *sidebar* untuk melihat Eksplorasi Data (EDA) atau hasil performa Model.
+    Dasbor ini menganalisis dataset manajemen kerumunan untuk **mengidentifikasi faktor-faktor kunci** yang memengaruhi kepuasan jamaah dan **membangun model prediktif**.
     """)
     
-    st.header("Tampilan Awal Data Mentah")
-    st.dataframe(df_raw.head(10))
+    # **FITUR PROFESIONAL v2.0: KOLOM & METRIK**
+    st.markdown("---")
+    st.header("Ringkasan Data Global (KPI)")
+    
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Total Catatan Jamaah", f"{df_raw.shape[0]:,}")
+    col2.metric("Rata-rata Waktu Antri (Menit)", f"{df_raw['Queue_Time_minutes'].mean():.1f} Menit")
+    col3.metric("Rata-rata Rating Keamanan", f"{df_raw['Perceived_Safety_Rating'].mean():.1f} / 5")
+    
+    st.markdown("---")
+    st.header("Tujuan Proyek")
+    st.markdown("""
+    1.  **Eksplorasi:** Memahami pola dalam data kerumunan (misal: kapan antrian terpanjang terjadi?).
+    2.  **Prediksi:** Membangun model *Machine Learning* untuk memprediksi apakah seorang jamaah akan **Puas** (Rating 4-5) atau **Tidak Puas** (Rating 1-3).
+    3.  **Rekomendasi:** Menemukan faktor apa yang paling memengaruhi kepuasan untuk memberikan rekomendasi operasional.
+    """)
+    
+    # **FITUR PROFESIONAL v2.0: EXPANDER**
+    with st.expander("Lihat Sampel Data Mentah (15 Baris Pertama)"):
+        st.dataframe(df_raw.head(15))
 
 # -----------------------------------------------------------------
 # HALAMAN 2: EKSPLORASI DATA (EDA)
 # -----------------------------------------------------------------
 elif page == "Eksplorasi Data (EDA)":
-    st.title("Eksplorasi Data (EDA)")
-    st.markdown("Di halaman ini, kita akan melihat visualisasi dari data mentah untuk memahami pola.")
+    st.title("🔍 Eksplorasi Data (EDA) Interaktif")
+    st.warning(f"Anda sedang melihat **{len(df_filtered)}** dari **{len(df_raw)}** total data (berdasarkan filter di sidebar).")
 
-    # --- Visualisasi 1: Distribusi Kepuasan ---
-    st.header("1. Distribusi Tingkat Kepuasan (Target)")
-    fig, ax = plt.subplots(figsize=(10, 6))
-    sns.countplot(x='Satisfaction_Rating', data=df_raw, palette='viridis', hue='Satisfaction_Rating', legend=False, ax=ax)
-    ax.set_title('Distribusi Tingkat Kepuasan Jamaah (1=Sangat Tidak Puas, 5=Sangat Puas)', fontsize=16)
-    ax.set_xlabel('Rating', fontsize=12)
-    ax.set_ylabel('Jumlah Jamaah', fontsize=12)
-    st.pyplot(fig)
-    
-    st.markdown("""
-    **Observasi:** Distribusi rating sangat seimbang (hampir 2000 sampel per kelas). 
-    Ini tidak biasa untuk data di dunia nyata dan menunjukkan sifat sintetis dari dataset.
-    """)
+    if df_filtered.empty:
+        st.error("Tidak ada data yang cocok dengan filter Anda. Silakan sesuaikan filter di sidebar.")
+    else:
+        # Layout 2 kolom
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # --- Visualisasi 1: Distribusi Kepuasan ---
+            st.subheader("Distribusi Tingkat Kepuasan")
+            fig, ax = plt.subplots()
+            sns.countplot(x='Satisfaction_Rating', data=df_filtered, palette='viridis', hue='Satisfaction_Rating', legend=False, ax=ax)
+            ax.set_title('Distribusi Rating Kepuasan')
+            st.pyplot(fig)
 
-    # --- Visualisasi 2: Distribusi Fitur Kategorikal ---
-    st.header("2. Distribusi Fitur Kategorikal")
-    
-    # Memilih beberapa kolom kunci untuk ditampilkan di Streamlit
-    categorical_cols_to_show = [
-        'Crowd_Density', 'Activity_Type', 'Weather_Conditions',
-        'Fatigue_Level', 'Stress_Level', 'Health_Condition',
-        'Age_Group', 'Pilgrim_Experience'
-    ]
-    
-    # Membuat selectbox agar user bisa memilih
-    selected_col = st.selectbox("Pilih Fitur Kategorikal untuk Dilihat:", categorical_cols_to_show)
-    
-    fig, ax = plt.subplots(figsize=(12, 7))
-    sns.countplot(y=selected_col, data=df_raw, order=df_raw[selected_col].value_counts().index, palette='viridis', hue=selected_col, legend=False, ax=ax)
-    ax.set_title(f'Distribusi Frekuensi untuk: {selected_col}', fontsize=16)
-    ax.set_xlabel('Jumlah Jamaah', fontsize=12)
-    ax.set_ylabel(selected_col, fontsize=12)
-    st.pyplot(fig)
-    
-    # --- Visualisasi 3: Heatmap Korelasi ---
-    st.header("3. Heatmap Korelasi Fitur Numerik")
-    
-    # Memilih kolom numerik dari data mentah
-    numeric_cols_raw = df_raw.select_dtypes(include=np.number).columns.tolist()
-    
-    # Menghapus Lat/Long agar lebih fokus pada fitur sensor/pengalaman
-    numeric_cols_to_corr = [col for col in numeric_cols_raw if 'Lat' not in col and 'Long' not in col]
-    
-    corr = df_raw[numeric_cols_to_corr].corr()
-    
-    fig, ax = plt.subplots(figsize=(14, 10))
-    sns.heatmap(corr, annot=True, fmt=".2f", cmap='coolwarm', ax=ax, annot_kws={"size": 8})
-    ax.set_title('Heatmap Korelasi Antar Fitur Numerik', fontsize=16)
-    plt.xticks(rotation=45, ha='right')
-    plt.yticks(rotation=0)
-    st.pyplot(fig)
-    
-    st.markdown("""
-    **Observasi:**
-    -   `Perceived_Safety_Rating` memiliki korelasi positif kecil dengan `Satisfaction_Rating`.
-    -   `Queue_Time_minutes` memiliki korelasi negatif kecil dengan `Satisfaction_Rating`.
-    -   Secara umum, korelasi antar fitur cukup rendah, yang membuat tugas prediksi menjadi menantang.
-    """)
+        with col2:
+            # --- Visualisasi 2: Kepadatan Kerumunan ---
+            st.subheader("Distribusi Kepadatan Kerumunan")
+            fig, ax = plt.subplots()
+            df_filtered['Crowd_Density'].value_counts().plot(kind='pie', autopct='%1.1f%%', ax=ax, colors=sns.color_palette('Pastel2'))
+            ax.set_ylabel('') # Hapus label y
+            ax.set_title('Proporsi Kepadatan Kerumunan')
+            st.pyplot(fig)
 
+        st.markdown("---")
+        
+        # --- Visualisasi 3: Fitur Kategorikal Pilihan User ---
+        st.subheader("Distribusi Fitur Kategorikal (Pilihan Anda)")
+        
+        categorical_cols_to_show = [
+            'Activity_Type', 'Weather_Conditions', 'Fatigue_Level', 
+            'Stress_Level', 'Health_Condition', 'Transport_Mode'
+        ]
+        selected_col = st.selectbox("Pilih Fitur untuk Dilihat:", categorical_cols_to_show)
+        
+        fig, ax = plt.subplots(figsize=(10, 6))
+        sns.countplot(y=selected_col, data=df_filtered, order=df_filtered[selected_col].value_counts().index, palette='viridis', hue=selected_col, legend=False, ax=ax)
+        ax.set_title(f'Distribusi Frekuensi untuk: {selected_col}')
+        ax.set_xlabel('Jumlah Jamaah')
+        st.pyplot(fig)
+
+        # --- Visualisasi 4: Heatmap Korelasi ---
+        st.subheader("Heatmap Korelasi Fitur Numerik")
+        with st.expander("Tampilkan/Sembunyikan Heatmap"):
+            numeric_cols_raw = df_filtered.select_dtypes(include=np.number).columns.tolist()
+            numeric_cols_to_corr = [col for col in numeric_cols_raw if 'Lat' not in col and 'Long' not in col and 'binary' not in col]
+            
+            corr = df_filtered[numeric_cols_to_corr].corr()
+            
+            fig, ax = plt.subplots(figsize=(14, 10))
+            sns.heatmap(corr, annot=True, fmt=".2f", cmap='coolwarm', ax=ax, annot_kws={"size": 8})
+            ax.set_title('Heatmap Korelasi Antar Fitur Numerik', fontsize=16)
+            st.pyplot(fig)
+            st.markdown("""
+            **Insight Kunci:**
+            -   `Perceived_Safety_Rating` memiliki korelasi positif kecil (0.16) dengan `Satisfaction_Rating`.
+            -   `Queue_Time_minutes` memiliki korelasi negatif kecil (-0.16). Ini adalah *pembunuh kepuasan*!
+            """)
 
 # -----------------------------------------------------------------
-# HALAMAN 3: PERFORMA MODEL & PREDIKSI
+# HALAMAN 3: SIMULASI MODEL & PERFORMA
 # -----------------------------------------------------------------
-elif page == "Performa Model & Prediksi":
-    st.title("Performa Model & Prediksi")
+elif page == "Simulasi Model & Performa":
+    st.title("🤖 Simulasi Model & Performa")
     st.markdown("""
-    Kita menggunakan **XGBoost Classifier** yang telah di-tuning dengan `scale_pos_weight` 
-    untuk mengatasi target biner yang tidak seimbang (setelah kita menggabungkan rating 1-3 vs 4-5).
+    Di halaman ini, Anda dapat **menguji model secara interaktif** atau melihat **performa keseluruhannya** pada data uji. Model yang digunakan adalah **XGBoost Classifier**.
     """)
+    st.markdown("---")
 
-    # --- Bagian 1: Performa Model ---
-    st.header("1. Hasil Evaluasi Model (pada Data Uji)")
-    
-    # Membuat prediksi
-    y_pred_xgb_tuned = model.predict(X_test)
-    
-    # Menampilkan Classification Report
-    st.subheader("Classification Report")
-    report = classification_report(y_test, y_pred_xgb_tuned, target_names=['Tidak Puas (0)', 'Puas (1)'], output_dict=True)
-    st.dataframe(pd.DataFrame(report).transpose())
-    
-    st.markdown("""
-    **Interpretasi:**
-    -   **Recall (Puas):** Model ini berhasil mengidentifikasi **39%** dari semua jamaah yang *sebenarnya* Puas.
-    -   **Recall (Tidak Puas):** Model ini sangat baik (84%) dalam mengidentifikasi jamaah yang *Tidak Puas*.
-    -   **F1-Score (Macro Avg):** Rata-rata F1-Score adalah 0.58, yang menunjukkan performa yang *cukup* untuk dataset yang menantang ini.
-    """)
-    
-    # Menampilkan Confusion Matrix
-    st.subheader("Confusion Matrix")
-    fig, ax = plt.subplots()
-    ConfusionMatrixDisplay.from_estimator(
-        model, X_test, y_test, 
-        cmap='Blues', 
-        display_labels=['Tidak Puas', 'Puas'],
-        ax=ax
-    )
-    ax.set_title('Confusion Matrix - XGBoost (Tuned)')
-    st.pyplot(fig)
+    col1, col2 = st.columns([1.5, 2]) # Kolom pertama lebih sempit
 
+    with col1:
+        # **FITUR INTERAKTIF v2.0: FORMULIR PREDIKSI**
+        st.subheader("Kalkulator Prediksi Kepuasan 💡")
+        st.info("Masukkan skenario di bawah ini untuk mendapatkan prediksi *live* dari model.")
+        
+        # Ambil input berdasarkan 5 fitur teratas
+        
+        # Input 1: Perceived_Safety_Rating
+        safety_rating = st.slider(
+            "Rating Keamanan (Perceived Safety Rating)", 1, 5, 3
+        )
+        
+        # Input 2: Time_Spent_at_Location_minutes
+        time_spent = st.slider(
+            "Waktu di Lokasi (Menit)", 10, 120, 60
+        )
+        
+        # Input 3: Queue_Time_minutes
+        queue_time = st.slider(
+            "Waktu Antri (Menit)", 0, 60, 15
+        )
+        
+        # Input 4: Security_Checkpoint_Wait_Time
+        security_wait = st.slider(
+            "Waktu Antri Keamanan (Menit)", 0, 30, 10
+        )
+        
+        # Input 5: Crowd_Density
+        crowd_density = st.selectbox(
+            "Kepadatan Kerumunan (Crowd Density)",
+            options=['Low', 'Medium', 'High']
+        )
+        
+        # Tombol Prediksi
+        submit_button = st.button("Dapatkan Prediksi", type="primary")
 
-    # --- Bagian 2: Fitur Terpenting ---
-    st.header("2. Faktor Paling Berpengaruh (Feature Importance)")
-    st.markdown("""
-    Apa faktor utama yang digunakan model untuk mengambil keputusan?
-    """)
-    
-    feature_importances = pd.DataFrame({
-        'feature': X.columns,
-        'importance': model.feature_importances_
-    }).sort_values('importance', ascending=False)
-    
-    top_15_features = feature_importances.head(15)
-    
-    fig, ax = plt.subplots(figsize=(12, 8))
-    sns.barplot(x='importance', y='feature', data=top_15_features, palette='viridis', hue='feature', legend=False, ax=ax)
-    ax.set_title('Top 15 Feature Importances - XGBoost Model', fontsize=16)
-    ax.set_xlabel('Tingkat Kepentingan', fontsize=12)
-    ax.set_ylabel('Fitur', fontsize=12)
-    st.pyplot(fig)
-    
-    st.markdown("""
-    **Observasi Kunci:**
-    -   **`Perceived_Safety_Rating`** adalah faktor terpenting yang menentukan kepuasan.
-    -   Fitur lain seperti `Time_Spent_at_Location_minutes`, `Queue_Time_minutes`, dan `Security_Checkpoint_Wait_Time` juga memainkan peran penting.
-    -   Kepadatan (`Crowd_Density_Medium`, `Crowd_Density_Low`) juga memengaruhi hasil.
-    """)
+    # --- Logika di Kolom Kedua (Hasil Prediksi & Performa Model) ---
+    with col2:
+        if submit_button:
+            # 1. Buat template DataFrame dengan semua 0, sesuai kolom X
+            input_data = pd.DataFrame(0, index=[0], columns=feature_columns)
+            
+            # 2. Isi nilai numerik dari form
+            numeric_inputs = {
+                'Perceived_Safety_Rating': safety_rating,
+                'Time_Spent_at_Location_minutes': time_spent,
+                'Queue_Time_minutes': queue_time,
+                'Security_Checkpoint_Wait_Time': security_wait
+            }
+            
+            # Isi nilai numerik lain (yang tidak ada di form) dengan RATA-RATA
+            for col in numeric_cols:
+                if col not in numeric_inputs:
+                    # Mengisi dgn nilai rata-rata dari data mentah
+                    input_data[col] = df_raw[col].mean()
+                else:
+                    input_data[col] = numeric_inputs[col]
+            
+            # 3. Scale nilai numerik
+            input_data[numeric_cols] = scaler.transform(input_data[numeric_cols])
+            
+            # 4. Isi nilai kategorikal dari form
+            # (Ingat kita pakai drop_first=False)
+            input_data[f'Crowd_Density_{crowd_density}'] = 1
+            
+            # Isi nilai kategorikal lain (yang tidak ada di form) dengan MODUS (paling umum)
+            for col_prefix in ['Activity_Type', 'Weather_Conditions', 'Fatigue_Level', 'Stress_Level', 'Health_Condition', 'Age_Group', 'Pilgrim_Experience', 'Transport_Mode', 'Emergency_Event', 'Crowd_Morale', 'AR_Navigation_Success', 'Nationality']:
+                if f'{col_prefix}_{crowd_density}' not in input_data.columns: # Hindari overwrite crowd_density
+                    modus_value = df_raw[col_prefix].mode()[0]
+                    # Pastikan kolomnya ada
+                    if f'{col_prefix}_{modus_value}' in input_data.columns:
+                        input_data[f'{col_prefix}_{modus_value}'] = 1
+
+            # 5. Dapatkan Prediksi
+            prediction = model.predict(input_data[feature_columns]) # Pastikan urutan kolom
+            prediction_proba = model.predict_proba(input_data[feature_columns])
+            
+            # 6. Tampilkan Hasil
+            st.subheader("Hasil Prediksi:")
+            if prediction[0] == 1:
+                st.success(f"**Prediksi: PUAS** (Probabilitas: {prediction_proba[0][1]:.1%})")
+                st.markdown("Model memprediksi bahwa jamaah dengan skenario ini kemungkinan besar akan **Puas**.")
+            else:
+                st.error(f"**Prediksi: TIDAK PUAS** (Probabilitas: {prediction_proba[0][0]:.1%})")
+                st.markdown("Model memprediksi bahwa jamaah dengan skenario ini kemungkinan besar akan **Tidak Puas**.")
+        
+        else:
+            # Tampilan default jika tombol belum ditekan
+            st.info("Klik tombol 'Dapatkan Prediksi' di sebelah kiri untuk melihat simulasi.")
+
+        st.markdown("---")
+        
+        # --- Bagian Performa Model (Tetap ditampilkan) ---
+        st.header("Performa Model Keseluruhan")
+        st.markdown("Hasil ini didapat dari 2.000 data uji (data yang belum pernah dilihat model).")
+        
+        y_pred_xgb_tuned = model.predict(X_test)
+        
+        # Menampilkan Classification Report
+        st.subheader("Classification Report")
+        report = classification_report(y_test, y_pred_xgb_tuned, target_names=['Tidak Puas (0)', 'Puas (1)'], output_dict=True)
+        st.dataframe(pd.DataFrame(report).transpose())
+        
+        # Menampilkan Confusion Matrix
+        st.subheader("Confusion Matrix")
+        fig, ax = plt.subplots()
+        ConfusionMatrixDisplay.from_estimator(
+            model, X_test, y_test, 
+            cmap='Blues', 
+            display_labels=['Tidak Puas', 'Puas'],
+            ax=ax
+        )
+        ax.set_title('Confusion Matrix - XGBoost (Tuned)')
+        st.pyplot(fig)
+        
+        # Menampilkan Fitur Terpenting
+        with st.expander("Lihat Faktor Paling Berpengaruh (Feature Importance)"):
+            feature_importances = pd.DataFrame({
+                'feature': feature_columns,
+                'importance': model.feature_importances_
+            }).sort_values('importance', ascending=False)
+            
+            top_15_features = feature_importances.head(15)
+            
+            fig, ax = plt.subplots(figsize=(12, 8))
+            sns.barplot(x='importance', y='feature', data=top_15_features, palette='viridis', hue='feature', legend=False, ax=ax)
+            ax.set_title('Top 15 Feature Importances - XGBoost Model', fontsize=16)
+            ax.set_xlabel('Tingkat Kepentingan', fontsize=12)
+            ax.set_ylabel('Fitur', fontsize=12)
+            st.pyplot(fig)

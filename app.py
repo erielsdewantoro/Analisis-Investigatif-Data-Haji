@@ -207,7 +207,7 @@ if not df.empty:
             with st.spinner("Sedang melatih model..."):
                 # Persiapan Data
                 X = df.drop('Satisfaction_Rating', axis=1)[numericals.tolist() + categoricals.tolist()]
-                y = df['Satisfaction_Rating']
+                y = df['Satisfaction_Rating'] - 1
                 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
                 
                 # Preprocessing Pipeline
@@ -253,3 +253,4 @@ if not df.empty:
                 st.success(summary)
 else:
     st.error("Gagal memuat data. Pastikan 'hajj_umrah_crowd_management_dataset.csv' ada di folder yang benar.")
+

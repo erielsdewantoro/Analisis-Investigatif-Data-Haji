@@ -1,68 +1,69 @@
-# 🕋 Analisis Prediktif Kepuasan Jamaah Haji
+# 🕋 Hajj Pilgrim Satisfaction: A Predictive Analysis
 
-Sebuah dasbor *web* interaktif yang dibangun menggunakan Streamlit untuk menganalisis dan memprediksi faktor-faktor yang memengaruhi kepuasan jamaah selama ibadah Haji.
+An interactive web dashboard built with Streamlit to analyze and predict factors influencing pilgrim satisfaction during the Hajj.
 
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://yutetmurpzgpnqov6kzyp9.streamlit.app/)
 
-
----
-
-## 🚀 Gambaran Umum Proyek
-
-Manajemen kerumunan selama ibadah Haji dan Umrah adalah salah satu tantangan logistik paling kompleks di dunia. Proyek ini bertujuan untuk menganalisis dataset manajemen kerumunan untuk mengidentifikasi faktor-faktor kunci yang memengaruhi kepuasan jamaah.
-
-Tujuan utamanya adalah mengubah analisis data mentah (dari Jupyter Notebook) menjadi produk data yang interaktif dan dapat ditindaklanjuti.
+**[➡️ Visit the Live App Here!](https://yutetmurpzgpnqov6kzyp9.streamlit.app/)**
 
 ---
 
-## ✨ Fitur Utama Dasbor
-
-Aplikasi ini dibagi menjadi empat halaman utama:
-
-1.  **Ringkasan Proyek:**
-    * Menampilkan *Key Performance Indicators* (KPI) utama dari dataset, seperti total catatan, rata-rata waktu antri, dan rata-rata rating keamanan.
-    * Memberikan gambaran umum tentang tujuan dan metodologi proyek.
-
-2.  **Eksplorasi Data (EDA) Interaktif:**
-    * Memungkinkan pengguna untuk mem-filter data secara dinamis berdasarkan **Kelompok Usia** dan **Pengalaman Jamaah**.
-    * Semua visualisasi (distribusi rating, kepadatan, dll.) akan ter-update secara otomatis berdasarkan filter yang dipilih.
-
-3.  **Simulasi Model & Performa:**
-    * **Kalkulator Prediksi Kepuasan:** Fitur *live* di mana pengguna dapat memasukkan skenario (misal: waktu antri, tingkat keamanan, kepadatan) dan mendapatkan prediksi instan (`Puas`/`Tidak Puas`) dari model XGBoost.
-    * Menampilkan evaluasi performa model secara transparan, termasuk *Classification Report* dan *Confusion Matrix*.
-
-4.  **Insight & Rekomendasi:**
-    * Menampilkan 5 faktor terpenting yang digunakan model untuk mengambil keputusan (Feature Importance).
-    * Menerjemahkan *insight* data menjadi **rekomendasi operasional** yang jelas dan dapat ditindaklanjuti untuk meningkatkan kepuasan jamaah.
+![Hajj Pilgrim Satisfaction Predictive Analysis Preview](Overview.png)
 
 ---
 
-## 🛠️ Tumpukan Teknologi (Tech Stack)
+## 🚀 Project Overview
 
-* **Analisis Data:** Python, Pandas, NumPy
-* **Visualisasi Data:** Matplotlib, Seaborn
+Crowd management during the Hajj and Umrah is one of the world's most complex logistical challenges. This project aims to analyze a crowd management dataset to identify key factors influencing pilgrim satisfaction.
+
+The main goal is to transform raw data analysis (from a Jupyter Notebook) into an interactive and actionable data product.
+
+---
+
+## ✨ Key Dashboard Features
+
+The application is divided into four main pages:
+
+1.  **Project Summary:**
+    * Displays key performance indicators (KPIs) from the dataset, such as total records, average queue time, and average safety rating.
+    * Provides a general overview of the project's objectives and methodology.
+
+2.  **Interactive EDA (Exploratory Data Analysis):**
+    * Allows users to dynamically filter data based on **Age Group** and **Pilgrim Experience**.
+    * All visualizations (rating distributions, density, etc.) update automatically based on the selected filters.
+
+3.  **Model Simulation & Performance:**
+    * **Satisfaction Prediction Calculator:** A live feature where users can input a scenario (e.g., queue time, safety rating, crowd density) and get an instant prediction (`Pleased`/`Not Pleased`) from the XGBoost model.
+    * Transparently displays model performance evaluations, including a Classification Report and Confusion Matrix.
+
+4.  **Insights & Recommendations:**
+    * Shows the top 5 most important factors the model uses for decision-making (Feature Importance).
+    * Translates data insights into clear, **actionable operational recommendations** to improve pilgrim satisfaction.
+
+---
+
+## 🛠️ Technology Stack (Tech Stack)
+
+* **Data Analysis:** Python, Pandas, NumPy
+* **Data Visualization:** Matplotlib, Seaborn
 * **Machine Learning:** Scikit-learn (Preprocessing), XGBoost (Modeling)
 * **Web App & Deployment:** Streamlit, Streamlit Community Cloud
 
 ---
 
-## 💡 Insight Kunci & Temuan Utama
+## 💡 Key Insights & Main Findings
 
-Dari analisis dan model, kami menemukan dua faktor utama yang sangat memengaruhi kepuasan jamaah:
+From the analysis and model, we found two main factors that significantly impact pilgrim satisfaction:
 
-1.  **Persepsi Keamanan adalah #1:** `Perceived_Safety_Rating` adalah faktor paling penting. Jamaah yang *merasa* aman cenderung jauh lebih puas.
-    * **Rekomendasi:** Tingkatkan *visibilitas* petugas keamanan dan pastikan pencahayaan yang memadai, bukan hanya *jumlah* petugas.
+1.  **Perception of Safety is #1:** `Perceived_Safety_Rating` is the most important factor. Pilgrims who *feel* safe are far more likely to be satisfied.
+    * **Recommendation:** Increase the *visibility* of security personnel and ensure adequate lighting, not just the *number* of personnel.
 
-2.  **Waktu Antri adalah "Pembunuh Kepuasan":** `Queue_Time_minutes` dan `Security_Checkpoint_Wait_Time` adalah faktor negatif terkuat.
-    * **Rekomendasi:** Implementasikan sistem pemantauan antrian *real-time* dan buka pos pemeriksaan tambahan secara dinamis saat kepadatan terdeteksi tinggi.
-
----
-
-## 📊 Sumber Data & Keterbatasan
-
-* **Sumber Data:** Dataset yang digunakan adalah "Hajj & Umrah Crowd Management" yang diperoleh dari [Kaggle](https://www.kaggle.com/datasets/saidakd/hajj-umrah-crowd-management-dataset).
-* **Keterbatasan:** Analisis menunjukkan bahwa dataset ini kemungkinan besar bersifat **sintetis** (dibuat secara artifisial), yang ditandai dengan distribusi data yang terlalu sempurna dan tidak adanya *missing values*. Oleh karena itu, performa model pada data dunia nyata mungkin berbeda.
+2.  **Queue Time is a "Satisfaction Killer":** `Queue_Time_minutes` and `Security_Checkpoint_Wait_Time` are the strongest negative factors.
+    * **Recommendation:** Implement real-time queue monitoring systems and dynamically open additional checkpoints when crowd density is detected as 'High'.
 
 ---
 
-![Analisis Prediktif Kepuasan Jamaah Haji Preview](Overview.png)|
-**[➡️ Kunjungi Live App di Sini!](https://yutetmurpzgpnqov6kzyp9.streamlit.app//)**
+## 📊 Data Source & Limitations
+
+* **Data Source:** The dataset used is the "Hajj & Umrah Crowd Management" dataset obtained from [Kaggle](https://www.kaggle.com/datasets/saidakd/hajj-umrah-crowd-management-dataset).
+* **Limitation:** Analysis indicates this dataset is likely **synthetic** (artificially generated), marked by its perfect data distribution and lack of missing values. Therefore, the model's performance on real-world data may differ.

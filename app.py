@@ -145,37 +145,38 @@ elif page == "Eksplorasi Data (EDA)":
     else:
         st.info(f"Anda sedang melihat **{len(df_filtered)}** dari **{len(df_raw)}** total data (berdasarkan filter di sidebar).")
 
-        # [OPTIMASI] Menggunakan Tabs untuk desain yang lebih bersih
+        # Menggunakan Tabs untuk desain yang bersih
         tab1, tab2, tab3, tab4 = st.tabs([
-            "📊 Distribusi Rating & Kepadatan", 
-            "📈 Analisis Mendalam (EDA Baru!)",
+            "📊 Distribusi Utama", 
+            "📈 Analisis Mendalam",
             "🌐 EDA Interaktif (Plotly)", 
-            "🗺️ Heatmap Korelasi"
+            "🗺️ Korelasi Data"
         ])
         
+        # --- TAB 1: DISTRIBUSI UTAMA ---
         with tab1:
             st.subheader("Distribusi Rating Kepuasan & Kepadatan")
             col1, col2 = st.columns(2)
             
             with col1:
-                # [OPTIMASI] Menggunakan container + border untuk visual grouping
                 with st.container(border=True):
                     st.markdown("##### Distribusi Tingkat Kepuasan")
-                    fig, ax = plt.subplots()
+                    fig, ax = plt.subplots(figsize=(6, 4)) # Tetapkan figsize default untuk baseline
                     sns.countplot(x='Satisfaction_Rating', data=df_filtered, palette='viridis', hue='Satisfaction_Rating', legend=False, ax=ax)
-                    # [OPTIMASI] Plot konsisten
+                    # FIX: Memaksa plot menyesuaikan lebar kolom
                     st.pyplot(fig, use_container_width=True) 
             
             with col2:
                 with st.container(border=True):
                     st.markdown("##### Proporsi Kepadatan Kerumunan")
-                    fig, ax = plt.subplots()
+                    fig, ax = plt.subplots(figsize=(6, 4)) # Tetapkan figsize default untuk baseline
                     df_filtered['Crowd_Density'].value_counts().plot(kind='pie', autopct='%1.1f%%', ax=ax, colors=sns.color_palette('Pastel2'))
                     ax.set_ylabel('')
-                    st.pyplot(fig, use_container_width=True)
+                    # FIX: Memaksa plot menyesuaikan lebar kolom
+                    st.pyplot(fig, use_container_width=True) 
 
+        # --- TAB 2: ANALISIS MENDALAM ---
         with tab2:
-            # [OPTIMASI] Menjawab "EDA Kurang Banyak"
             st.subheader("Analisis Mendalam: Hubungan Antar Fitur")
             
             col1, col2 = st.columns(2)
@@ -183,7 +184,7 @@ elif page == "Eksplorasi Data (EDA)":
             with col1:
                 with st.container(border=True):
                     st.markdown("##### Waktu Antri vs Kepadatan")
-                    fig, ax = plt.subplots()
+                    fig, ax = plt.subplots(figsize=(6, 4))
                     sns.boxplot(
                         x='Crowd_Density', 
                         y='Queue_Time_minutes', 
@@ -194,17 +195,13 @@ elif page == "Eksplorasi Data (EDA)":
                         order=['Low', 'Medium', 'High'],
                         ax=ax
                     )
-                    ax.set_title('Waktu Antri Berdasarkan Kepadatan')
-                    ax.set_xlabel('Kepadatan Kerumunan')
-                    ax.set_ylabel('Waktu Antri (Menit)')
-                    st.pyplot(fig, use_container_width=True)
-                    st.markdown("**Insight:** Semakin tinggi kepadatan, waktu antri rata-rata (median) meningkat, dan variasinya (panjang box) juga semakin besar.")
+                    st.pyplot(fig, use_container_width=True) # FIX: use_container_width=True
+                    st.markdown("**Insight:** Semakin tinggi kepadatan, waktu antri rata-rata (median) meningkat.")
             
             with col2:
                 with st.container(border=True):
                     st.markdown("##### Kepuasan vs Tipe Aktivitas")
-                    fig, ax = plt.subplots()
-                    # Menghitung persentase
+                    fig, ax = plt.subplots(figsize=(6, 4))
                     activity_satisfaction = df_filtered.groupby('Activity_Type')['satisfaction_binary'].mean().reset_index().sort_values(by='satisfaction_binary', ascending=False)
                     
                     sns.barplot(
@@ -216,20 +213,15 @@ elif page == "Eksplorasi Data (EDA)":
                         legend=False,
                         ax=ax
                     )
-                    ax.set_title('Persentase Kepuasan (Rating 4-5) per Aktivitas')
-                    ax.set_xlabel('Proporsi Puas (Rating 4-5)')
-                    ax.set_ylabel('Tipe Aktivitas')
-                    st.pyplot(fig, use_container_width=True)
-                    st.markdown("**Insight:** Aktivitas 'Resting' (Istirahat) memiliki tingkat kepuasan paling rendah, mungkin karena kelelahan atau fasilitas yang kurang memadai.")
+                    st.pyplot(fig, use_container_width=True) # FIX: use_container_width=True
+                    st.markdown("**Insight:** Aktivitas 'Resting' (Istirahat) memiliki tingkat kepuasan terendah.")
 
+
+        # --- TAB 3: PLOTLY INTERAKTIF ---
         with tab3:
-            # [OPTIMASI] Menampilkan plot Plotly yang interaktif
             st.subheader("Analisis Interaktif (Plotly)")
-            st.markdown("Arahkan kursor ke plot di bawah ini untuk melihat detail.")
-            
             with st.container(border=True):
-                st.markdown("##### Waktu Antri vs Waktu di Lokasi (Jitter Plot)")
-                # Mengambil sampel agar tidak terlalu berat
+                st.markdown("##### Waktu Antri vs Waktu di Lokasi (Jitter Plotly)")
                 df_sample = df_filtered.sample(min(2000, len(df_filtered)))
                 
                 fig_plotly = px.scatter(
@@ -237,30 +229,26 @@ elif page == "Eksplorasi Data (EDA)":
                     x="Time_Spent_at_Location_minutes",
                     y="Queue_Time_minutes",
                     color="Satisfaction_Rating",
-                    facet_col="Crowd_Density", # [OPTIMASI] Fitur canggih: 1 plot per kepadatan
+                    facet_col="Crowd_Density", 
                     color_continuous_scale=px.colors.sequential.Viridis,
-                    title="Waktu Antri vs Waktu di Lokasi (berdasarkan Kepadatan)",
-                    hover_data=['Activity_Type', 'Age_Group'] # Data tambahan saat hover
+                    height=500 # FIX: Atur tinggi agar konsisten
                 )
-                # [OPTIMASI] Memanggil plot plotly
-                st.plotly_chart(fig_plotly, use_container_width=True)
-                st.markdown("""
-                **Insight (dari Plotly):**
-                -   Kita bisa melihat bahwa titik `Satisfaction_Rating` rendah (1-2) cenderung berkumpul di area `Queue_Time_minutes` yang tinggi.
-                -   Dengan memisahkan berdasarkan kepadatan, kita melihat bahwa di `High` density, titik-titik lebih terkumpul di waktu antri yang lebih tinggi.
-                """)
+                # FIX: Plotly secara native mengisi container width
+                st.plotly_chart(fig_plotly, use_container_width=True) 
 
+        # --- TAB 4: KORELASI ---
         with tab4:
             st.subheader("Heatmap Korelasi Fitur Numerik")
             with st.container(border=True):
+                # Heatmap sering memerlukan ruang ekstra, berikan lebih banyak ruang vertikal
                 numeric_cols_raw = df_filtered.select_dtypes(include=np.number).columns.tolist()
                 numeric_cols_to_corr = [col for col in numeric_cols_raw if 'Lat' not in col and 'Long' not in col and 'binary' not in col]
                 
                 corr = df_filtered[numeric_cols_to_corr].corr()
                 
-                fig, ax = plt.subplots(figsize=(14, 10))
+                fig, ax = plt.subplots(figsize=(10, 8)) # FIX: Tambah ukuran dasar untuk kerapihan
                 sns.heatmap(corr, annot=True, fmt=".2f", cmap='coolwarm', ax=ax, annot_kws={"size": 8})
-                st.pyplot(fig, use_container_width=True)
+                st.pyplot(fig, use_container_width=True) # FIX: use_container_width=True
 
 
 # -----------------------------------------------------------------
@@ -454,3 +442,4 @@ elif page == "Insight & Rekomendasi":
                 2. Lakukan *Hyperparameter Tuning* (misal: GridSearchCV) untuk meningkatkan performa.
                 3. Kembangkan fitur *real-time* berbasis *time-series* (misal: jam padat).
             """)
+
